@@ -35,7 +35,7 @@
 # 进群
 
 钉钉群：
-![img.png](img/dingding.png)
+![dingding](img/dingding.jpeg)
 
 赞助：
 ![good_job.png](img/good_job.png)
