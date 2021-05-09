@@ -23,9 +23,9 @@ Consumer 之间组成了 Consumer Group，可以有多个 Consumer Group 消费�
 分析：必考题。高性能的影响因素有很多，但是常考的就是顺序写 + 零拷贝。在这个问题之下，我们只需要罗列出来各个点，但是不做深入解释。在罗列完之后，我们重点对其中某些点做详细说明，一般我建议用零拷贝做深入阐释。当然，最好是记得所有的点，包括它们的细节，不过这样一回答，没有三五分钟答不完。
 
 答：Kafka 高性能依赖于非常多的手段：
-1. 零拷贝。在 Linux 上 Kafka 使用了两种手段，mmp (内存映射，一般我都记成妈卖批，哈哈哈) 和 sendfile，前者用于解决 Producer 写入数据，后者用于 Consumer 读取数据；
+1. 零拷贝。在 Linux 上 Kafka 使用了两种手段，mmap (内存映射，一般我都记成妈卖批，哈哈哈) 和 sendfile，前者用于解决 Producer 写入数据，后者用于 Consumer 读取数据；
 2. 顺序写：Kafka 的数据，可以看做是 AOF （append only file），它只允许追加数据，而不允许修改已有的数据。（后面是亮点）该手段也在数据库如 MySQL，Redis上很常见，这也是为什么我们一般说 Kafka 用机械硬盘就可以了。有人做过实验（的确有，你们可以找找，我已经找不到链接了），机械磁盘 Kafka 和 SSD Kafka 在性能上差距不大；
-3. Page Cache：Kafka 允许落盘的时候，是写到 Page Cache的时候就返回，还是一定要刷新到磁盘（主要就是mmp之后要不要强制刷新磁盘），类似的机制在 MySQL, Redis上也是常见，（简要评价一下两种方式的区别）如果写到 Page Cache 就返回，那么会存在数据丢失的可能，但是
+3. Page Cache：Kafka 允许落盘的时候，是写到 Page Cache的时候就返回，还是一定要刷新到磁盘（主要就是mmap之后要不要强制刷新磁盘），类似的机制在 MySQL, Redis上也是常见，（简要评价一下两种方式的区别）如果写到 Page Cache 就返回，那么会存在数据丢失的可能。
 4. 批量操作：包括 Producer 批量发送，也包括 Broker 批量落盘。批量能够放大顺序写的优势，比如说 Producer 还没攒够一批数据发送就宕机，就会导致数据丢失；
 5. 数据压缩：Kafka 提供了数据压缩选项，采用数据压缩能减少数据传输量，提高效率；
 6. 日志分段存储：Kafka 将日志分成不同的段，只有最新的段可以写，别的段都只能读。同时为每一个段保存了偏移量索引文件和时间戳索引文件，采用二分法查找数据，效率极高。同时 Kafka 会确保索引文件能够全部装入内存，以避免读取索引引发磁盘 IO。（这里有一点很有意思，就是在 MySQL 上，我们也会尽量说把索引大小控制住，能够在内存装下，在讨论数据库磁盘 IO 的时候，我们很少会计算索引无法装入内存引发的磁盘 IO，而是只计算读取数据的磁盘 IO）
@@ -35,28 +35,38 @@ Consumer 之间组成了 Consumer Group，可以有多个 Consumer Group 消费�
 
 （下面是零拷贝详解）
 一般的数据从网络到磁盘，或者从磁盘到网络，都需要经过四次拷贝。比如说磁盘到网络，要经过：
-![四次拷贝](https://pic4.zhimg.com/80/v2-07f829c7a070c3444b1d8c99d4afd1bb_720w.jpg)
+
+![四次拷贝](https://miro.medium.com/max/840/0*Q6eoQ-19bq-qkm_Y)
 
 1. 磁盘到内核缓冲区
 2. 内核缓冲区到应用缓冲区
 3. 应用缓冲区到内核缓冲区
 4. 内核缓冲区到网络缓冲
 
-零拷贝则是去掉了第二和第三。（之所以叫零拷贝，并不是说完全没有拷贝，而是指没有CPU参与的拷贝，DMA的还在）
+零拷贝则是去掉了第二和第三。（之所以叫零拷贝，并不是说完全没有拷贝，而是指没有CPU参与的拷贝，DMA的还在）。
 
-Kafka 利用了两项零拷贝技术，mmp 和 sendfile。前者是用于解决网络数据落盘的，Kafka 直接利用内存映射，完成了“写入操作”，对于 Kafka 来说，完成了网络缓冲区到磁盘缓冲区的“写入”，之后强制调用`flush`或者等操作系统（有参数控制）。（继续补充细节，如果自己是JAVA开发并且记得的话）Java 提供了`FileChannel`和`MappedByteBuffer`两项技术来实现 MMP。
+![零拷贝](https://miro.medium.com/max/700/0*es45Nv-ea2WDtI0n)
+
+(这一段可选，因为比较冷僻)如果在 Linux 高版本下，而且支持 DMA gather copy，那么内核缓冲区到
+
+![零拷贝](https://miro.medium.com/max/700/0*XJNUTI5QoiCzSbxE)
+
+Kafka 利用了两项零拷贝技术，mmap 和 sendfile。前者是用于解决网络数据落盘的，Kafka 直接利用内存映射，完成了“写入操作”，对于 Kafka 来说，完成了网络缓冲区到磁盘缓冲区的“写入”，之后强制调用`flush`或者等操作系统（有参数控制）。（继续补充细节，如果自己是JAVA开发并且记得的话）Java 提供了`FileChannel`和`MappedByteBuffer`两项技术来实现 mmap。
 
 `sendfile`是另外一种零拷贝实现，主要解决磁盘到网络的数据传输。操作系统读取磁盘数据到内存缓冲，直接丢过去`socket buffer`，而后发送出去。很多中间件，例如 `Nignx`, `tomcat` 都采用了类似的技术。
 
 关键字：零拷贝，顺序写，缓冲区，批量，压缩，分段存储
-顺口溜：
-零拷贝，mmp（妈卖批），sendfile 快如🐔
-顺序写，缓冲区，落盘记得要刷新
-批量发，多压缩，一不小心丢数据
-日志多，分段存，内存里面放索引
+
 
 #### 类似问题
+- 什么是零拷贝
+- 为什么顺序写那么快？
+- Kafka 为什么那么快？
+- 
+
+#### 如何引导
 - 讨论到了零拷贝技术
+- 讨论到了顺序写技术
 
 ### Kafka 的 ISR 是如何工作的？
 
@@ -173,7 +183,12 @@ MySQL 的主从模式比起来，并没有这种问题，即 MySQL 不需要进�
 
 关键字：谁控制，并发竞争
 
+
+### 如何解决 Topic 数量或者 Partition 数量过多的问题？
+
+### 如何保证消息有序性？方案有什么缺点？
+
 ## References
 [图解Kafka高可用机制](https://zhuanlan.zhihu.com/p/56440807)
 [Kafka高性能原理](https://zhuanlan.zhihu.com/p/105509080)
-[Kafka与零拷贝](https://zhuanlan.zhihu.com/p/78335525)
+[Why Kafka is fast](https://preparingforcodinginterview.wordpress.com/2019/10/04/kafka-3-why-is-kafka-so-fast/)
