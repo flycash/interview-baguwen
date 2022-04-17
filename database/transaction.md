@@ -73,6 +73,40 @@ innodb 引擎的可重复读隔离级别，要比定义的隔离级别更加严�
 #### 如何引导
 1. 前面聊到了MVCC提到隔离级别，机会合适就可以主动发起进攻
 
+### InnoDB 的 Repeatable Read 隔离级别有没有解决幻读
+
+先说答案：解决了（在官方文档的暧昧中），但是又没有完全解决（在头脑清醒的开发者眼中）。
+
+如上文所言，官方文档中表述 InnoDB 用临键锁 (next-key lock) 解决了幻读的问题，临键锁工作在 RR 隔离级别下，设置隔离级别为 RC 会导致 GAP 锁失效，继而导致没有临键锁。这是 InnoDB 自我定义其 RC 存在幻读，而 RR 可以避免幻读的描述。
+
+InnoDB 作为一个优等生，在[隔离级别定义](https://en.wikipedia.org/wiki/Isolation_(database_systems)#Repeatable_reads)要求 RR 不需要避免幻读的情况下，宣称自己实现了这个功能。但实际上受到了限制：
+
+
+- 对于仅包含连续相同快照读语句的事务，MVCC 避免了幻读，但是这种场景临键锁没有用武之地，而官方文档重点强调是临键锁的实际避免了幻读，所以 InnoDB 肯定觉得自己做到了更多。
+- 对于仅包含连续相同当前读语句的事务，第一个当前读会加临键锁，会阻塞别的事物的修改，也避免了幻读。
+- 但是对于快照都和当前读语句交错的事务，第一个快照读后其它事务仍可以修改并提交内容，当前事务的后续当前读就会读到其他事务带来的变更。导致可以造出一些印证 InnoDB 没有解决幻读问题的例子。
+
+![](img/rr-phantom-read-example.png)
+
+#### 参考资料
+
+- 官方文档-[InnoDB 宣称使用临键锁解决幻读](https://dev.mysql.com/doc/refman/8.0/en/innodb-next-key-locking.html)
+  - To prevent phantoms, InnoDB uses an algorithm called next-key locking that combines index-row locking with gap locking
+- 官方文档-[InnoDB 定义临键锁为 Record lock plus gap lock](https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html#innodb-next-key-locks)
+  - A next-key lock is a combination of a record lock on the index record and a gap lock on the gap before the index record.
+- 官方文档-[InnoDB 临键锁工作在 RR 下](https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html#innodb-next-key-locks)
+  - By default, InnoDB operates in REPEATABLE READ transaction isolation level
+- 官方文档-[InnoDB 可设置隔离级别为 RC 以关闭 Gap lock](https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html#innodb-gap-locks)
+  - Gap locking can be disabled explicitly. This occurs if you change the transaction isolation level to READ COMMITTED
+- 官方文档-[幻读（幻影行）定义](https://dev.mysql.com/doc/refman/8.0/en/innodb-next-key-locking.html)
+  - The so-called phantom problem occurs within a transaction when the same query produces different sets of rows at different times.
+- Wikipedia [幻读定义](https://en.wikipedia.org/wiki/Isolation_(database_systems)#Repeatable_reads)
+  - A phantom read occurs when, in the course of a transaction, new rows are added or removed by another transaction to the records being read.
+- Wikipedia [Serializable 隔离级别可以避免幻读](https://en.wikipedia.org/wiki/Isolation_(database_systems)#Phantom_reads)
+  - However, at the lesser isolation levels (than Serializable), a different set of rows may be returned the second time (phantom read happens)
+- MySQL [BUG #63870](https://bugs.mysql.com/bug.php?id=63870) 关于当前读附带一点幻读的讨论
+- 正经讨论 - [Innodb 中 RR 隔离级别能否防止幻读](https://github.com/Yhzhtk/note/issues/42)
+
 ### 什么是共享锁，排它锁
 
 分析：概念题，答完顺便回答意向排他锁，意向共享锁，刷一波
