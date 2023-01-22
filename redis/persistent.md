@@ -4,7 +4,7 @@
 
 进一步，我们可以拿 Redis 的 AOF 机制和 MySQL 的 `binlog` 进行对比，它们都记录的是中间执行步骤。而 MySQL 的`mysqldump`就非常接近 `RDB`，也是一种快照保存方案。
 
-![Redis 持久化](img/persistence.png)
+![Redis 持久化](./img/persistence.png)
 
 答案： Redis 的持久化机制分成两种，RDB 和 AOF。
 

@@ -13,7 +13,7 @@ innodb 引擎是通过MVCC来支持事务的。（到这一步，停下来，接
 
 关键点：ACID，innodb 通过 MVCC 支持事务
 
-![数据库事务](img/transaction.png)
+![数据库事务](./img/transaction.png)
 
 ## 扩展点
 
@@ -86,7 +86,7 @@ InnoDB 作为一个优等生，在[隔离级别定义](https://en.wikipedia.org/
 - 对于仅包含连续相同当前读语句的事务，第一个当前读会加临键锁，会阻塞别的事物的修改，也避免了幻读。
 - 但是对于快照都和当前读语句交错的事务，第一个快照读后其它事务仍可以修改并提交内容，当前事务的后续当前读就会读到其他事务带来的变更。导致可以造出一些印证 InnoDB 没有解决幻读问题的例子。
 
-![](img/rr-phantom-read-example.png)
+![](./img/rr-phantom-read-example.png)
 
 #### 参考资料
 
@@ -129,7 +129,7 @@ InnoDB 作为一个优等生，在[隔离级别定义](https://en.wikipedia.org/
 2. 间隙锁：锁住记录之间的间隔，或者索引之前的范围，或者所以之后的范围。只在重复读级别产生，（可以在前面隔离级别的地方提）
 3. 临键锁（Next key lock）:记录锁和间隙锁的组合，即锁住记录，又锁住了间隙
 
-![记录锁和间隙锁](img/next_key_lock.png)
+![记录锁和间隙锁](./img/next_key_lock.png)
 
 
 ### innodb 引擎和 MyISAM 引擎的区别

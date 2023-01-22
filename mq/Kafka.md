@@ -2,7 +2,7 @@
 
 分析： 如果只是宽泛地谈 Kafka，那么回答的点就要围绕 Kafka 的几个组成来。这个部分不必谈及“为什么 Kafka 高性能” “为什么 Kafka 高可用”等问题。因为按照一般的惯例，接下来就会聊这个话题。总跳回答的思路就是介绍一下 Kafka 的基本原理，几个主要概念。后面详细的内容，等后面面试官来提问。
 
-![Kafka知识点](img/kafka_available_performance.png)
+![Kafka知识点](./img/kafka_available_performance.png)
 
 答：Kafka 是一个基于发布订阅模式的消息队列中间件。它由 Producer, Consumer, Broker 和 Partition 几个组成。
 

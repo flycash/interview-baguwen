@@ -10,7 +10,7 @@
 
 Redis Sentinel 模式要注意有两个集群，一个是存放了 Redis 数据的集群，一个是监控这个数据集群的哨兵集群。于是就需要理解哨兵集群之间是如何监控的，如何就某件事达成协议，以及哨兵自身的容错。
 
-![Redis 高可用](img/availability.png)
+![Redis 高可用](./img/availability.png)
 
 答案：Redis 高可用有两种模式，Sentinel 和 Cluster。
 
